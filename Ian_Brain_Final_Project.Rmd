@@ -1,0 +1,224 @@
+---
+title: "Final Project"
+author: "Ian Brain"
+date: "4/27/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, out.width = 400)
+```
+## Introduction
+
+The purpose of this report is to perform basic exploratory data analysis on how six molecular variables are associated with levels of LC50. We are examining the fish toxicity data set which measures the concentration of chemicals that cause death in 50% of fathead minnows.
+The data set can be found at this link: https://archive.ics.uci.edu/ml/datasets/QSAR+fish+toxicity
+
+
+
+There are six descriptors in this data set and one response variable. First, CIC0 contains complementary information content with neighborhood symmetry of 0 order. Secondly, SM1_Dz contains 2d matrix based descriptors. Moreover, GATS1i represents the geary autocorrelation of lag 1 weighted by ionization potential. Furthermore, NdsCH and NdssC are categorical variables that contain atom-type counts. MLOGP is a molecular property factor and LC50 is the response which is the concentration of chemicals that cause death in 50% of test fish over a test duration of 96 hours.
+
+This report uses two packages. The first is the tidyverse package, a collection of R packages that are similar and designed to work together. The second package is GGally which is similar to ggplot2 but allows us to create more plots including the pairs plot. 
+```{r}
+library(tidyverse)
+library(GGally)
+```
+
+First the data set is read in and assigned to the fishData object.
+```{r}
+fishData <- read_csv2("/Users/ianbrain/Downloads/rstudio/qsar_fish_toxicity.csv", col_names = FALSE)
+```
+
+The columns of fishData are renamed to the molecular descriptors and quantitative response.
+```{r}
+fishData <- fishData %>% 
+  rename("CIC0" = X1, 
+         "SM1_Dz" = X2, 
+         "GATS1i" = X3, 
+         "NdsCH" = X4, 
+         "NdssC" = X5, 
+         "MLOGP" = X6,
+         "LC50" = X7)
+```
+
+The columns that should be numeric in fishData are made numeric and the first 10 rows of each column are displayed.
+```{r}
+fishData <- transform(fishData, MLOGP = as.numeric(MLOGP),
+                      CIC0 = as.numeric(CIC0),
+                      GATS1i = as.numeric(GATS1i),
+                      SM1_Dz = as.numeric(SM1_Dz),
+                      LC50 = as.numeric(LC50))
+fishData[1:10,]
+```
+
+## EDA
+
+We will explore the data in the EDA section of this report. First, a pairs plot is created to examine the relationships among the variables in fishData.
+```{r}
+pairs(fishData)
+```
+
+Next, numeric summaries are made for the LC50 variable in combination with other variables. First, a 5 number summary for the LC50 variable alone is created. The mean of LC50 is also displayed.
+```{r}
+fishData %>% 
+  summarize(minimum = min(LC50, na.rm =TRUE), 
+            Q1 = quantile(LC50, probs = .25, na.rm = TRUE), 
+            mean = mean(LC50, na.rm =TRUE), 
+            median = median(LC50, na.rm =TRUE), 
+            Q3 = quantile(LC50, probs = .75, na.rm = TRUE), 
+            maximum = max(LC50, na.rm =TRUE))
+```
+
+Then, another 5 number summary is created for LC50 across each value of the NdssC variable.
+```{r}
+fishData %>% 
+  group_by(NdssC) %>% 
+  summarize(minimum = min(LC50, na.rm =TRUE), 
+            Q1 = quantile(LC50, probs = .25, na.rm = TRUE), 
+            mean = mean(LC50, na.rm =TRUE), 
+            median = median(LC50, na.rm =TRUE), 
+            Q3 = quantile(LC50, probs = .75, na.rm = TRUE), 
+            maximum = max(LC50, na.rm =TRUE))
+#do this for the other categorical variable as well
+```
+
+In the same way a 5 number summary is created for LC50 but across each value of the NdsCH varaible rather than NdssC.
+```{r}
+fishData %>% 
+  group_by(NdsCH) %>% 
+  summarize(minimum = min(LC50, na.rm =TRUE), 
+            Q1 = quantile(LC50, probs = .25, na.rm = TRUE), 
+            mean = mean(LC50, na.rm =TRUE), 
+            median = median(LC50, na.rm =TRUE), 
+            Q3 = quantile(LC50, probs = .75, na.rm = TRUE), 
+            maximum = max(LC50, na.rm =TRUE))
+```
+
+Finally, the variance of LC50 is displayed and the correlation between LC50 and each of the continuous variables is outputted.
+```{r}
+fishData %>%
+  summarize(variance = var(LC50, na.rm = TRUE),
+            corMLOGP = cor(LC50, MLOGP, use =  "complete.obs"),
+            corCIC0 = cor(LC50, CIC0, use =  "complete.obs"),
+            corGATS1i = cor(LC50, GATS1i, use =  "complete.obs"),
+            corSM1_Dz = cor(LC50, SM1_Dz, use =  "complete.obs"))
+
+```
+
+Moving forward, different plots are created for the variables of fishData. First, the counts are examined for the two categorical variables: NdssC and NdsCH.
+```{r}
+ggplot(fishData, aes(x = NdssC)) + 
+  geom_bar()
+
+ggplot(fishData, aes(x = NdsCH)) + 
+  geom_bar()
+```
+
+A histogram of the LC50 variable is then created to examine its distribution. 
+```{r}
+ggplot(fishData, aes(x = LC50)) + 
+  geom_histogram()
+```
+
+Similarly, side by side box plots are created for the values of LC50 that correspond with each value of NdssC. The factor() function is used as NdssC is a categorical variable.
+```{r}
+ggplot(fishData, aes(x = factor(NdssC), y = LC50)) + 
+  geom_boxplot()
+```
+
+A scatter plot is created to examine the distribution of LC50 in correspondence with the MLOGP variable. The color of the points is determined using their NdsCH value.
+```{r}
+ggplot(fishData, aes(x = MLOGP, y = LC50, color = NdsCH)) + 
+  geom_point()
+```
+
+Finally, smoothed plots are created to examine the relationship between CIC0 and LC50. The facet_wrap() function is used to display the relationships across the 5 values of NdsCH.
+```{r message=FALSE}
+ggplot(fishData, aes(x = CIC0, y = LC50)) + 
+  geom_smooth() + 
+  facet_wrap(~NdsCH)
+```
+
+In the last section of EDA a function is created to transform the values of a variable into "low" or "high" depending on whether the value is less than or equal to, or greater than the median of the variable.
+```{r}
+newFishData <- fishData
+funLowHigh <- function(column) {
+  return(if_else(column <= median(column), "low", "high"))
+}
+```
+
+This function is then applied to to every column in the newFishData data set and the resulting data set is turned into a data frame.
+```{r}
+newFishData <- apply(X = newFishData,
+      MARGIN = 2,
+      FUN = funLowHigh)
+newFishData <- data.frame(newFishData)
+```
+
+A two way contingency table comparing the binary values of the LC50 and MLOGP variables is created. Similarly, side by side box plots comparing the two variables are also created.
+```{r}
+table(newFishData[,7], newFishData[,6])
+
+ggplot(newFishData, aes(y = newFishData[,7])) + 
+  geom_bar() +
+  labs(y = "LC50", x = "MLOGP") +
+  facet_wrap(~newFishData[,6])
+```
+
+In the same way, a two way contingency table comparing the binary values in the LC50 and NdsCH variables is created. Side by side box plots comparing the two variables are also created.
+```{r}
+table(newFishData[,7], newFishData[,4])
+
+ggplot(newFishData, aes(y = newFishData[,7])) + 
+  geom_bar() +
+  labs(y = "LC50", x = "NdsCH") +
+  facet_wrap(~newFishData[,4])
+```
+
+## Multiple linear regression
+
+The final section of this report covers linear regression. A model is first created using CIC0 and SM1_Dz. 
+```{r}
+fitSM1_Dz <- lm(LC50 ~ CIC0 + SM1_Dz, data = fishData)
+summary(fitSM1_Dz)
+```
+
+A model is then created using MLOGP and GATS1i.
+```{r}
+fitMLOGP <- lm(LC50 ~ MLOGP + GATS1i, data = fishData)
+summary(fitMLOGP)
+```
+
+A model is created using GATS1i and the polynomial term of GATS1i.
+```{r}
+fitGATS1i <- lm(LC50 ~ GATS1i + I(GATS1i^2), data = fishData)
+summary(fitGATS1i)
+```
+
+A model is created using GATS1i, NdsCH, and the interaction term of these two variables. 
+```{r}
+fitNdsCH <- lm(LC50 ~ GATS1i + NdsCH + GATS1i:NdsCH, data = fishData)
+summary(fitNdsCH)
+```
+
+Subsequently, diagnostic plots are created to examine the model fit and normality assumptions. The fitted value vs residuals plot of LC50, MLOGP, and GATS1i displays a relatively random scatter and therefore the homoscedasticity assumption holds. This being said, the points in the bottom right of the plot are worrisome so we may need to transform our model.
+```{r}
+plot(fitMLOGP, which = 1)
+```
+
+The QQ plot displays a relatively straight line indicating the normality assumption is met.
+```{r}
+plot(fitMLOGP, which = 2)
+```
+
+Finally, the fitMLOGP and fitNdsCH models created previously are used to predict the value of LC50. The values used are the median values of the variables in each model.
+```{r}
+predict(fitMLOGP, newdata = data.frame(MLOGP = median(fishData$MLOGP), GATS1i = median(fishData$GATS1i)))
+
+predict(fitNdsCH, newdata = data.frame(GATS1i = median(fishData$GATS1i), NdsCH = median(fishData$NdsCH)))
+```
+
+
+
+
+
+
